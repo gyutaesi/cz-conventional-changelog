@@ -12,9 +12,14 @@ var filter = function(array) {
   });
 };
 
+var subText = function(target, item) {
+  var text = '  . '.concat(item);
+  target.push(text);
+}
+
 var headerLength = function(answers) {
   return (
-    answers.type.length + 2 + (answers.scope ? answers.scope.length + 2 : 0)
+    answers.type.length + 2
   );
 };
 
@@ -24,9 +29,9 @@ var maxSummaryLength = function(options, answers) {
 
 var filterSubject = function(subject) {
   subject = subject.trim();
-  if (subject.charAt(0).toLowerCase() !== subject.charAt(0)) {
+  if (subject.charAt(0).toUpperCase() !== subject.charAt(0)) {
     subject =
-      subject.charAt(0).toLowerCase() + subject.slice(1, subject.length);
+      subject.charAt(0).toUpperCase() + subject.slice(1, subject.length);
   }
   while (subject.endsWith('.')) {
     subject = subject.slice(0, subject.length - 1);
@@ -78,22 +83,10 @@ module.exports = function(options) {
         },
         {
           type: 'input',
-          name: 'scope',
-          message:
-            'What is the scope of this change (e.g. component or file name): (press enter to skip)',
-          default: options.defaultScope,
-          filter: function(value) {
-            return options.disableScopeLowerCase
-              ? value.trim()
-              : value.trim().toLowerCase();
-          }
-        },
-        {
-          type: 'input',
           name: 'subject',
           message: function(answers) {
             return (
-              'Write a short, imperative tense description of the change (max ' +
+              'Title : Write a short, imperative tense description of the change (max ' +
               maxSummaryLength(options, answers) +
               ' chars):\n'
             );
@@ -125,68 +118,55 @@ module.exports = function(options) {
         },
         {
           type: 'input',
-          name: 'body',
-          message:
-            'Provide a longer description of the change: (press enter to skip)\n',
-          default: options.defaultBody
-        },
-        {
-          type: 'confirm',
-          name: 'isBreaking',
-          message: 'Are there any breaking changes?',
-          default: false
-        },
-        {
-          type: 'input',
-          name: 'breakingBody',
-          default: '-',
-          message:
-            'A BREAKING CHANGE commit requires a body. Please enter a longer description of the commit itself:\n',
-          when: function(answers) {
-            return answers.isBreaking && !answers.body;
-          },
-          validate: function(breakingBody, answers) {
+          name: 'reason',
+          message: 'Reason of changes (Use "|" to break new line)\n',
+          validate: function(reason, answers) {
             return (
-              breakingBody.trim().length > 0 ||
-              'Body is required for BREAKING CHANGE'
+              reason.trim().length > 0 ||
+              '"Reason of changes" is required'
             );
           }
         },
         {
           type: 'input',
-          name: 'breaking',
-          message: 'Describe the breaking changes:\n',
-          when: function(answers) {
-            return answers.isBreaking;
+          name: 'cause',
+          message: 'Cause\n',
+          validate: function(reason, answers) {
+            return (
+              reason.trim().length > 0 ||
+              '"Cause" is required'
+            );
           }
-        },
-
-        {
-          type: 'confirm',
-          name: 'isIssueAffected',
-          message: 'Does this change affect any open issues?',
-          default: options.defaultIssues ? true : false
         },
         {
           type: 'input',
-          name: 'issuesBody',
-          default: '-',
-          message:
-            'If issues are closed, the commit requires a body. Please enter a longer description of the commit itself:\n',
-          when: function(answers) {
+          name: 'solution',
+          message: 'Solution\n',
+          validate: function(reason, answers) {
             return (
-              answers.isIssueAffected && !answers.body && !answers.breakingBody
+              reason.trim().length > 0 ||
+              '"Solution" is required'
             );
           }
         },
         {
           type: 'input',
           name: 'issues',
-          message: 'Add issue references (e.g. "fix #123", "re #123".):\n',
+          message: 'Add JIRA issue ID (e.g. "SONOSYNC-123 SONOSYNC-1234"):\n',
           when: function(answers) {
-            return answers.isIssueAffected;
+            return answers.type == 'fix';
           },
-          default: options.defaultIssues ? options.defaultIssues : undefined
+          validate: function(reason, answers) {
+            return (
+              reason.trim().length > 0 ||
+              '"Issue ID" is required'
+            );
+          }
+        },
+        {
+          type: 'input',
+          name: 'etc',
+          message: 'ETC (optional) (Use "|" to break new line)\n',
         }
       ]).then(function(answers) {
         var wrapOptions = {
@@ -197,25 +177,22 @@ module.exports = function(options) {
           width: options.maxLineWidth
         };
 
-        // parentheses are only needed when a scope is present
-        var scope = answers.scope ? '(' + answers.scope + ')' : '';
-
         // Hard limit this line in the validate
-        var head = answers.type + scope + ': ' + answers.subject;
+        var head = `[${answers.type}] ${answers.subject}`
 
         // Wrap these lines at options.maxLineWidth characters
-        var body = answers.body ? wrap(answers.body, wrapOptions) : false;
+        var reason = ['- Reason of changes : '];
+        answers.reason.split('|').forEach(item => subText(reason, item));
 
-        // Apply breaking change prefix, removing it if already present
-        var breaking = answers.breaking ? answers.breaking.trim() : '';
-        breaking = breaking
-          ? 'BREAKING CHANGE: ' + breaking.replace(/^BREAKING CHANGE: /, '')
-          : '';
-        breaking = breaking ? wrap(breaking, wrapOptions) : false;
-
-        var issues = answers.issues ? wrap(answers.issues, wrapOptions) : false;
-
-        commit(filter([head, body, breaking, issues]).join('\n\n'));
+        var cause = `- Cause : ${wrap(answers.cause, wrapOptions)}`;
+        var solution = `- Solution : ${wrap(answers.solution, wrapOptions)}`;
+        var issues = answers.issues ? `- Issue ID : ${wrap(answers.issues, wrapOptions)}` : false;
+        var etc = ['- ETC : '];
+        answers.etc.split('|').forEach(item => subText(etc, item));
+        
+        var result = `${head} \n\n${filter([...reason, cause, solution, issues, ...etc]).join('\n')}`;
+        console.log(result);
+        commit(result);
       });
     }
   };
