@@ -12,8 +12,8 @@ var filter = function(array) {
   });
 };
 
-var subText = function(target, item) {
-  var text = '  . '.concat(item);
+var subText = function(target, item, wrapOptions) {
+  var text = '  - '.concat(wrap(item, wrapOptions).trim());
   target.push(text);
 }
 
@@ -118,19 +118,8 @@ module.exports = function(options) {
         },
         {
           type: 'input',
-          name: 'reason',
-          message: 'Reason of changes (Use "|" to break new line)\n',
-          validate: function(reason, answers) {
-            return (
-              reason.trim().length > 0 ||
-              '"Reason of changes" is required'
-            );
-          }
-        },
-        {
-          type: 'input',
           name: 'cause',
-          message: 'Cause\n',
+          message: 'Cause (Use "|" to break new line)\n',
           validate: function(reason, answers) {
             return (
               reason.trim().length > 0 ||
@@ -141,7 +130,7 @@ module.exports = function(options) {
         {
           type: 'input',
           name: 'solution',
-          message: 'Solution\n',
+          message: 'Solution (Use "|" to break new line)\n',
           validate: function(reason, answers) {
             return (
               reason.trim().length > 0 ||
@@ -181,17 +170,33 @@ module.exports = function(options) {
         var head = `[${answers.type}] ${answers.subject}`
 
         // Wrap these lines at options.maxLineWidth characters
-        var reason = ['- Reason of changes : '];
-        answers.reason.split('|').forEach(item => subText(reason, item));
 
-        var cause = `- Cause : ${wrap(answers.cause, wrapOptions)}`;
-        var solution = `- Solution : ${wrap(answers.solution, wrapOptions)}`;
-        var issues = answers.issues ? `- Issue ID : ${wrap(answers.issues, wrapOptions)}` : false;
-        var etc = ['- ETC : '];
-        answers.etc.split('|').forEach(item => subText(etc, item));
+        var cause = ['Cause : '];
+        if (answers.cause.indexOf('|') != -1) {
+          answers.cause.split('|').forEach(item => subText(cause, item, wrapOptions));
+        } else {
+          cause[0] = cause[0].concat(wrap(answers.cause, wrapOptions));
+        }
+
+        var solution = ['Solution : '];
+        if (answers.solution.indexOf('|') != -1) {
+          answers.solution.split('|').forEach(item => subText(solution, item, wrapOptions));
+        } else {
+          solution[0] = solution[0].concat(wrap(answers.solution, wrapOptions));
+        }
+
+        var issues = answers.issues ? `Issue ID : ${wrap(answers.issues, wrapOptions)}` : false;
+
+        var etc = ['ETC : '];
+        if (answers.etc.indexOf('|') != -1) {
+          answers.etc.split('|').forEach(item => subText(etc, item, wrapOptions));
+        } else {
+          etc[0] = etc[0].concat(wrap(answers.etc, wrapOptions));
+        }
         
-        var result = `${head} \n\n${filter([...reason, cause, solution, issues, ...etc]).join('\n')}`;
+        var result = `${head} \n\n${filter([...cause, ...solution, issues, ...etc]).join('\n')}`;
         console.log(result);
+        
         commit(result);
       });
     }
