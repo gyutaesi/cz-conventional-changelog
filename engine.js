@@ -141,7 +141,7 @@ module.exports = function(options) {
         {
           type: 'input',
           name: 'issues',
-          message: 'Add JIRA issue ID (e.g. "SONOSYNC-123 SONOSYNC-1234"):\n',
+          message: 'Add JIRA issue ID (e.g. "SONOSYNC-123 SONOSYNC-1234") (Use "|" to break new line)\n',
           when: function(answers) {
             return answers.type == 'fix';
           },
@@ -185,8 +185,6 @@ module.exports = function(options) {
           solution[0] = solution[0].concat(wrap(answers.solution, wrapOptions));
         }
 
-        var issues = answers.issues ? `Issue ID : ${wrap(answers.issues, wrapOptions)}` : false;
-
         var etc = ['ETC : '];
         if (answers.etc.indexOf('|') != -1) {
           answers.etc.split('|').forEach(item => subText(etc, item, wrapOptions));
@@ -194,7 +192,24 @@ module.exports = function(options) {
           etc[0] = etc[0].concat(wrap(answers.etc, wrapOptions));
         }
         
-        var result = `${head} \n\n${filter([...cause, ...solution, issues, ...etc]).join('\n')}`;
+        var result = '';
+
+        if (answers.type == 'fix') {
+          var issues = ['Issue ID : '];
+          if (answers.issues.indexOf('|') != -1) {
+            answers.issues.split('|').forEach(item => subText(issues, item, wrapOptions));
+          } else {
+            issues[0] = issues[0].concat(wrap(answers.issues, wrapOptions));
+          }
+
+          result = `${head} \n\n${filter([...cause, ...solution, ...issues, ...etc]).join('\n')}`;
+
+        } else {
+
+          result = `${head} \n\n${filter([...cause, ...solution, ...etc]).join('\n')}`;
+
+        }
+        
         console.log(result);
         
         commit(result);
